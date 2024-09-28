@@ -3,6 +3,8 @@ package com.theelixrlabs.Message.service;
 import com.theelixrlabs.Message.dto.MessageResponseDTO;
 import com.theelixrlabs.Message.model.Message;
 import com.theelixrlabs.Message.repository.MessageRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -14,7 +16,9 @@ import java.util.stream.Collectors;
 
 @Service
 public class MessageService {
+    private static final Logger logger = LoggerFactory.getLogger(MessageService.class);
     private final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd:MM:yyyy HH:mm:ss");
+
     @Autowired
     private MessageRepository messageRepository;
 
@@ -25,16 +29,21 @@ public class MessageService {
         messages.setReceiverUsername(receiverUsername);
         messages.setMessage(message);
         messages.setTimeStamp(LocalDateTime.now());
-        return messageRepository.save(messages);
+
+        Message savedMessage = messageRepository.save(messages);
+        logger.info("Message sent from {} to {}: {}", currentUserName, receiverUsername, message);
+        return savedMessage;
     }
 
     public List<Message> getUserMessages(String username) {
+        logger.info("Fetching messages for user: {}", username);
         return messageRepository.findBySenderUsernameOrReceiverUsername(username, username);
     }
 
     public List<MessageResponseDTO> getLatest10MessagesForUser(String username) {
         List<Message> messages = messageRepository.findBySenderUsernameOrReceiverUsername(username, username);
 
+        logger.info("Fetching latest 10 messages for user: {}", username);
         return messages.stream()
                 .sorted((m1, m2) -> m2.getTimeStamp().compareTo(m1.getTimeStamp())) // Sort by timestamp descending
                 .limit(10) // Limit to the latest 10 messages
@@ -52,16 +61,13 @@ public class MessageService {
         return dto;
     }
 
-    // New method to get chat history
     public List<MessageResponseDTO> getChatHistory(String selectedUsername) {
-        // Get the logged-in user's username
         String currentUserName = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
 
-        // Fetch messages exchanged between the logged-in user and the selected user
+        logger.info("Fetching chat history between {} and {}", currentUserName, selectedUsername);
         List<Message> chatHistory = messageRepository.findBySenderUsernameAndReceiverUsernameOrSenderUsernameAndReceiverUsername(
                 currentUserName, selectedUsername, selectedUsername, currentUserName);
 
-        // Map messages to DTOs with formatted timestamps
         return chatHistory.stream()
                 .map(this::mapToMessageResponseDTO)
                 .collect(Collectors.toList());
