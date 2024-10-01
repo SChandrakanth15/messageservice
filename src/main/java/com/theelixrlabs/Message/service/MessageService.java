@@ -1,5 +1,6 @@
 package com.theelixrlabs.Message.service;
 
+import com.theelixrlabs.Message.constants.MessageConstant;
 import com.theelixrlabs.Message.dto.MessageResponseDTO;
 import com.theelixrlabs.Message.model.Message;
 import com.theelixrlabs.Message.repository.MessageRepository;
@@ -17,7 +18,7 @@ import java.util.stream.Collectors;
 @Service
 public class MessageService {
     private static final Logger logger = LoggerFactory.getLogger(MessageService.class);
-    private final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd:MM:yyyy HH:mm:ss");
+    private final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern(MessageConstant.DATE_TIME_FORMATTER);
 
     @Autowired
     private MessageRepository messageRepository;
@@ -35,10 +36,10 @@ public class MessageService {
         return savedMessage;
     }
 
-    public List<Message> getUserMessages(String username) {
-        logger.info("Fetching messages for user: {}", username);
-        return messageRepository.findBySenderUsernameOrReceiverUsername(username, username);
-    }
+//    public List<Message> getUserMessages(String username) {
+//        logger.info("Fetching messages for user: {}", username);
+//        return messageRepository.findBySenderUsernameOrReceiverUsername(username, username);
+//    }
 
     public List<MessageResponseDTO> getLatest10MessagesForUser(String username) {
         List<Message> messages = messageRepository.findBySenderUsernameOrReceiverUsername(username, username);
