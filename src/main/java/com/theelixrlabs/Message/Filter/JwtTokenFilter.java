@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -18,10 +19,12 @@ import java.util.Collections;
 public class JwtTokenFilter extends OncePerRequestFilter {
 
     private final WebClient webClient;
+    @Value("${auth.baseUrl}")
+    private String authUrl;
 
     @Autowired
     public JwtTokenFilter(WebClient.Builder webClientBuilder) {
-        this.webClient = webClientBuilder.baseUrl("https://exr-138-authservice.nicepebble-15cceb5b.southindia.azurecontainerapps.io").build();
+        this.webClient = webClientBuilder.build();
     }
 
     @Override
@@ -35,8 +38,8 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             //System.out.println(jwtToken);
             // Call Auth Service to verify the token and get the username
             String username = webClient.post()
-                    .uri("/auth/verify")
-                    .header("Authorization", "Bearer "+jwtToken)
+                    .uri(authUrl + "/auth/verify")
+                    .header("Authorization", "Bearer " + jwtToken)
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();  // Blocking to ensure the username is retrieved before proceeding
