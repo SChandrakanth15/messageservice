@@ -23,32 +23,47 @@ public class MessageController {
     private MessageService messageService;
 
     @PostMapping(ApiPathsConstant.SEND_MESSAGE)
-    public Message sendMessage(@RequestBody MessageRequest messageRequest) {
-        logger.info("Received request to send message to {}: {}", messageRequest.getReceiverUsername(), messageRequest.getMessage());
-        return messageService.sendMessage(
-                messageRequest.getReceiverUsername(),
-                messageRequest.getMessage()
-        );
+    public ResponseEntity<Message> sendMessage(@RequestBody MessageRequest messageRequest) {
+        logger.info("Received request to send message from {} to {}",
+                SecurityContextHolder.getContext().getAuthentication().getPrincipal(),
+                messageRequest.getReceiverUsername());
+        try {
+            Message sentMessage = messageService.sendMessage(
+                    messageRequest.getReceiverUsername(),
+                    messageRequest.getMessage()
+            );
+            logger.info("Message sent successfully to {}", messageRequest.getReceiverUsername());
+            return ResponseEntity.ok(sentMessage);
+        } catch (RuntimeException e) {
+            logger.error("Error sending message to {}: {}", messageRequest.getReceiverUsername(), e.getMessage(), e);
+            return ResponseEntity.status(500).body(null); // Error response
+        }
     }
-
-//    @GetMapping("/inbox")
-//    public List<Message> getMessages(@RequestParam String username) {
-//        logger.info("Fetching inbox messages for user: {}", username);
-//        return messageService.getUserMessages(username);
-//    }
 
     @GetMapping(ApiPathsConstant.GET_USER_MESSAGES)
     public ResponseEntity<List<MessageResponseDTO>> getUserMessages() {
         String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         logger.info("Fetching latest messages for user: {}", username);
-        List<MessageResponseDTO> userMessages = messageService.getLatest10MessagesForUser(username);
-        return ResponseEntity.ok(userMessages);
+        try {
+            List<MessageResponseDTO> userMessages = messageService.getLatest10MessagesForUser(username);
+            logger.info("Successfully fetched messages for user: {}", username);
+            return ResponseEntity.ok(userMessages);
+        } catch (RuntimeException e) {
+            logger.error("Error fetching messages for user {}: {}", username, e.getMessage(), e);
+            return ResponseEntity.status(500).build(); // Error response
+        }
     }
 
     @GetMapping(ApiPathsConstant.GET_CHAT_HISTORY)
     public ResponseEntity<List<MessageResponseDTO>> getChatHistory(@PathVariable String selectedUsername) {
         logger.info("Fetching chat history for selected user: {}", selectedUsername);
-        List<MessageResponseDTO> chatHistory = messageService.getChatHistory(selectedUsername);
-        return ResponseEntity.ok(chatHistory);
+        try {
+            List<MessageResponseDTO> chatHistory = messageService.getChatHistory(selectedUsername);
+            logger.info("Successfully fetched chat history for {}", selectedUsername);
+            return ResponseEntity.ok(chatHistory);
+        } catch (RuntimeException e) {
+            logger.error("Error fetching chat history for {}: {}", selectedUsername, e.getMessage(), e);
+            return ResponseEntity.status(500).build(); // Error response
+        }
     }
 }
