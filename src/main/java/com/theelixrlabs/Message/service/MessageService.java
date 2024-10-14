@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -33,6 +32,7 @@ public class MessageService {
         messages.setTimeStamp(LocalDateTime.now());
 
         try {
+            logger.debug("Saving message in repository...");
             Message savedMessage = messageRepository.save(messages);
             logger.info("Message sent successfully from {} to {}: {}", currentUserName, receiverUsername, message);
             return savedMessage;
@@ -46,6 +46,7 @@ public class MessageService {
         logger.info("Fetching latest 10 messages for user: {}", username);
         try {
             List<Message> messages = messageRepository.findBySenderUsernameOrReceiverUsername(username, username);
+            logger.debug("Fetched {} messages from the repository for user: '{}'", messages.size(), username);
             if (messages.isEmpty()) {
                 logger.warn("No messages found for user: {}", username);
             }
@@ -68,6 +69,7 @@ public class MessageService {
         dto.setReceiverUsername(message.getReceiverUsername());
         dto.setMessage(message.getMessage());
         dto.setTimeStamp(message.getTimeStamp().format(FORMATTER)); // Format the timestamp
+        logger.debug("Mapped message with ID: '{}' to DTO successfully.", message.getId());
         return dto;
     }
 
@@ -76,6 +78,7 @@ public class MessageService {
 
         logger.info("Fetching chat history between {} and {}", currentUserName, selectedUsername);
         try {
+            logger.debug("Querying repository for chat history...");
             List<Message> chatHistory = messageRepository.findBySenderUsernameAndReceiverUsernameOrSenderUsernameAndReceiverUsername(
                     currentUserName, selectedUsername, selectedUsername, currentUserName);
 
