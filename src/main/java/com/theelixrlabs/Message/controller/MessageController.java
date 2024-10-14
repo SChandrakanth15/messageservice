@@ -45,6 +45,7 @@ public class MessageController {
         String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         logger.info("Fetching latest messages for user: {}", username);
         try {
+            logger.debug("Calling messageService to get the latest messages...");
             List<MessageResponseDTO> userMessages = messageService.getLatest10MessagesForUser(username);
             logger.info("Successfully fetched messages for user: {}", username);
             return ResponseEntity.ok(userMessages);
@@ -58,6 +59,7 @@ public class MessageController {
     public ResponseEntity<List<MessageResponseDTO>> getChatHistory(@PathVariable String selectedUsername) {
         logger.info("Fetching chat history for selected user: {}", selectedUsername);
         try {
+            logger.debug("Calling messageService to get chat history...");
             List<MessageResponseDTO> chatHistory = messageService.getChatHistory(selectedUsername);
             logger.info("Successfully fetched chat history for {}", selectedUsername);
             return ResponseEntity.ok(chatHistory);
