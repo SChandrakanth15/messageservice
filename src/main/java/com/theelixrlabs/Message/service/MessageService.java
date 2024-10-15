@@ -1,13 +1,12 @@
 package com.theelixrlabs.Message.service;
 
+import com.theelixrlabs.Message.Filter.JwtTokenFilter;
 import com.theelixrlabs.Message.constants.MessageConstant;
 import com.theelixrlabs.Message.dto.MessageResponseDTO;
 import com.theelixrlabs.Message.model.Message;
 import com.theelixrlabs.Message.repository.MessageRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -20,11 +19,17 @@ public class MessageService {
     private static final Logger logger = LoggerFactory.getLogger(MessageService.class);
     private final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern(MessageConstant.DATE_TIME_FORMATTER);
 
-    @Autowired
-    private MessageRepository messageRepository;
+    private final MessageRepository messageRepository;
+    private final JwtTokenFilter jwtTokenFilter;
+
+    // Constructor injection for better dependency management
+    public MessageService(MessageRepository messageRepository, JwtTokenFilter jwtTokenFilter) {
+        this.messageRepository = messageRepository;
+        this.jwtTokenFilter = jwtTokenFilter;
+    }
 
     public Message sendMessage(String receiverUsername, String message) {
-        String currentUserName = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+        String currentUserName = jwtTokenFilter.getCurrentUser(); // Get the current user from JwtTokenFilter
         logger.debug("Preparing messages to send from {} to {}", currentUserName, receiverUsername);
         Message messages = new Message();
         messages.setSenderUsername(currentUserName);
@@ -72,7 +77,7 @@ public class MessageService {
     }
 
     public List<MessageResponseDTO> getChatHistory(String selectedUsername) {
-        String currentUserName = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+        String currentUserName = jwtTokenFilter.getCurrentUser(); // Get the current user from JwtTokenFilter
 
         logger.info("Fetching chat history between {} and {}", currentUserName, selectedUsername);
         try {

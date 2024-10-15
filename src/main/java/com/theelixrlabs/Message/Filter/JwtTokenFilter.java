@@ -1,20 +1,20 @@
 package com.theelixrlabs.Message.Filter;
 
-import com.theelixrlabs.Message.service.MessageService;
+import com.theelixrlabs.Message.service.JwtService;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.MDC;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -23,14 +23,10 @@ import java.util.Collections;
 public class JwtTokenFilter extends OncePerRequestFilter {
     private static final Logger logger = LoggerFactory.getLogger(JwtTokenFilter.class);
 
-    private final WebClient webClient;
+    private final JwtService jwtService;
 
-    @Value("${auth.baseUrl}")
-    private String authUrl;
-
-    @Autowired
-    public JwtTokenFilter(WebClient.Builder webClientBuilder) {
-        this.webClient = webClientBuilder.build();
+    public JwtTokenFilter(JwtService jwtService) {
+        this.jwtService = jwtService;
     }
 
     @Override
@@ -38,33 +34,54 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String authorizationHeader = request.getHeader("Authorization");
+        String token = null;
+        String userName = null;
 
-        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-            String jwtToken = authorizationHeader.substring(7);
-            try {
-                String username = webClient.post()
-                        .uri(authUrl + "/auth/verify")
-                        .header("Authorization", "Bearer " + jwtToken)
-                        .retrieve()
-                        .bodyToMono(String.class)
-                        .block();  // Blocking to ensure the username is retrieved before proceeding
-
-                if (username != null) {
-                    UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(username, null, Collections.emptyList());
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                }
-            } catch (WebClientResponseException e) {
-                logger.error("JWT validation failed: {}", e.getResponseBodyAsString(), e);
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid JWT token");
-                return;
-            } catch (Exception e) {
-                logger.error("Error verifying JWT token: {}", e.getMessage(), e);
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Error verifying JWT token");
-                return;
+        try {
+            // Extract token from the Authorization header
+            if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+                token = authorizationHeader.substring(7);
+                userName = jwtService.extractUserName(token);  // Extract username from token
             }
-        }
 
-        filterChain.doFilter(request, response);
+            // Proceed if userName is available and SecurityContext is not yet set
+            if (userName != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                // Validate token
+                if (jwtService.validateToken(token)) {
+                    logger.info("JWT token is valid for user: {}", userName);
+
+                    // Set authentication in the SecurityContext
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(userName, null, Collections.emptyList());
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                    // Set authentication in SecurityContext
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                    // Optionally, set the username in MDC for logging purposes
+                    MDC.put("userName", userName);
+                }
+            }
+            // Continue with the filter chain
+            filterChain.doFilter(request, response);
+        } catch (JwtException | IllegalArgumentException e) {
+            logger.error("Invalid JWT token: {}", e.getMessage());
+            MDC.clear();
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid JWT token");
+        } catch (Exception e) {
+            logger.error("An error occurred during JWT processing: {}", e.getMessage());
+            MDC.clear();
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred while processing JWT");
+        }
+    }
+
+    // New Method to extract current user from SecurityContext
+    public String getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated()) {
+            return authentication.getName(); // This returns the username set in SecurityContext
+        } else {
+            return null; // No authenticated user found
+        }
     }
 }
